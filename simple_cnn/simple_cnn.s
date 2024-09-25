@@ -193,7 +193,90 @@ convolution_max_pool:
 //   X1: input (base pointer to conv_output matrix)
 //   X2: output (base pointer to conv_max_pool_output matrix)
 max_pool:
-    BR LR
+    mov x9, #0
+                // j = 0
+    mloopj:
+        cmp x9, #12
+                // j < MAX_POOL_OUTPUT_SIZE
+        b.ge mloopjdone
+                // j loop done
+        
+        mov x10, #0
+                // i = 0
+        mloopi:
+            cmp x10, #12
+                    // i < MAX_POOL_OUTPUT_SIZE
+            b.ge mloopidone
+                    // i loop done
+            
+            mov x13, #0
+                    // max = 0
+            mov x11, #0
+                    // y = 0
+            mloopy:
+                cmp x11, #2
+                        // y < MAX_POOL_WINDOW_SIZE
+                b.ge mloopydone
+                        // y loop done
+                
+                mov x12, #0
+                        // x = 0
+                mloopx:
+                    cmp x12, #2
+                            // x < MAX_POOL_WINDOW_SIZE
+                    b.ge mloopxdone
+                            // x loop done
+                    
+                    lsl x14, x9, #1
+                            // x14 = j * MAX_POOL_STRIDE (2)
+                    add x14, x14, x11
+                            // x14 = j * MAX_POOL_STRIDE + y
+                    
+                    lsl x15, x10, #1
+                            // x15 = i * MAX_POOL_STRIDE (2)
+                    add x15, x15, x12
+                            // x15 = i * MAX_POOL_STRIDE + x
+                    mov x16, #23
+                    mul x14, x14, x16
+                            // multiply by # of rows
+                    add x14, x14, x15
+                            // add offset
+                    ldur x14, [x1, x14]
+                            // get value of input
+                    
+                    cmp x14, x13
+                            // compare input with max
+                    b.gt replace
+                    add x12, x12, #1
+                    b mloopx
+
+                    replace:
+                        mov x13, x14
+                        add x12, x12, #1
+                        b mloopx
+                mloopxdone:
+                    add x11, x11, #1
+                    b mloopy
+            mloopydone:
+                mov x11, #6
+                mul x11, x11, x0
+                        // x11 = k * 6
+                mov x12, #12
+                mul x12, x9, x12
+                        // x12 = j * 12
+                add x11, x11, x12
+                add x11, x11, x10
+                        // x11 = k + j + i (times row amounts)
+                stur x13, [x2, x11]
+                        // output[k][j][i] = max
+                add x10, x10, #1
+                        // i += 1
+                b mloopi
+        mloopidone:
+            add x9, x9, #1
+            b mloopj
+    mloopjdone:
+        BR LR
 
 // ---------- ReLU Procedure (Leaf) ----------
 // Parameters:
