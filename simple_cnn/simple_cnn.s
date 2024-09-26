@@ -10,7 +10,7 @@ conv_biases:    .byte -67, -114, -96, -54, -120, -128
 // Input image that is used by the convolution_max_pool procedure. (28 x 28) unsigned bytes
 image:                  .space 784
 // Temporary matrix used by the convolution_max_pool procedure to store the intermediate
-// result of convolution. This is passed to the max_pool function. (24 x 24) signed ints
+// result of convolution. This is passed to the max_pool function. (24 x 24) signed ints (4 bytes)
 conv_output:            .space 2304
 // This is used to store the result of the convolution_max_pool procedure
 // This is passed to the max_pool function. (6 x 12 x 12) signed ints
@@ -37,145 +37,108 @@ exit:
 //   X2: biases
 //   x3: output
 convolution_max_pool:
-    sub sp, sp, #32 
+    sub sp, sp, #48
     stur lr, [sp, #0] 
     stur x19, [sp, #8]
     stur x20, [sp, #16]
     stur x21, [sp, #24]
+    stur x22, [sp, #32]
     mov x19, x0      
                 // x19 = image base address
     mov x20, x1      
                 // x20 = weights base address
     mov x21, x2      
                 // x21 = biases base address
+    mov x22, x3
+                // x22 = output
 
 
-    mov x0, #0 
+    mov x3, #0 
                 // k = 0
     loopk:
-        cmp x0, #6
-                    // k < TOTAL_KERNELS
+        cmp x3, #6
         b.ge loopkdone
-                    // finish k loop
 
-        ldur x5, =conv_output
-                    // x5 = conv_output
-
-        mov x9, #0
-                    // j = 0
+        ldur x9, =conv_output
+        mov x4, #0
         loopj:
-            cmp x9, #24
-                        // j < CONV_OUTPUT_SIZE
-            b.ge loopjdone
-                        // finish j loop
+                cmp x4, #24
+                b.ge loopjdone
 
-            mov x10, #0
-                        // i = 0
-            loopi:
-                cmp x10, #24
-                            // i < CONV_OUTPUT_SIZE
-                b.ge loopidone
-                            // finish i loop
-                mov x4, #0
-                            // sum = 0
-                
-                mov x11, #0
-                            // y = 0
-                loopy:
-                    cmp x11, #5
-                                // y < CONV_KERNEL_SIZE
-                    b.ge loopydone
-                                // finish y loop
-                    
-                    mov x12, #0
-                                // x = 0
-                    loopx:
-                        cmp x12, #5
-                                    // x < CONV_KERNEL_SIZE
-                        b.ge loopxdone
-                                    // finish x loop
+                mov x5, #0
+                loopi:
+                        cmp x5, #24
+                        b.ge loopidone
 
-                        add x13, x9, x11
-                                    // x13 = j + y
-                        add x14, x10, x12
-                                    // x14 = i + x
-                        mov x15, #28
-                        //mul x13, x13, x15
-                                    // multiply by 28 for 28x28 input
-                        add x13, x13, x14
-                                    // x13 = (j+y) * 28 + (i+x)
-                        add x13, x19, x13
-                                    // x13 = address of input[j+y][i+x]
-                        ldur x13, [x13]
-                                    // x13 = value of x13, input[j+y][i+x]
+                        mov x10, #0
+                        // sum = 0
+                        mov x6, #0
+                        loopy:
+                            cmp x6, #5
+                            b.ge loopydone
+
+                                mov x7, #0
+                                loopx:
+                                    cmp x7, #5
+                                    b.ge loopxdone
+
+                                    add x11, x4, x6
+                                    mov x12, #28
+                                    mul x11, x11, x12
+                                    // x11 = 24*(j+y)
+                                    add x12, x5, x7
+                                    // x12 = i + x
+                                    add x11, x11, x12
+                                    ldurb x11, [x19, x11]
+
+                                    mov x12, #25
+                                    mul x12, x12, x3
+                                    mov x13, #5
+                                    mul x13 , x13, x6
+                                    add x12, x12, x13
+                                    add x12, x12, x7
+                                    lsl x12, x12, #2
+                                    ldurb x12, [x20, x12]
+
+                                    mul x11, x11, x12
+                                    add x10, x10, x11
+
+
+                                    add x7, x7, #1
+                                    b loopx
+
+                            loopxdone:
+                            add x6, x6, #1
+                            b loopy
                         
-                        mov x14, #25
-                                    // 5x5 kernel
-                        mul x14, x0, x14
-                                    // x14 = k * 25
-                        add x14, x14, x11
-                                    // x14 = k * 25 + y
-                        mov x15, #5
-                        mul x14, x14, x15
-                                    // x14 = (k * 25 + y) * 5
-                        add x14, x14, x12
-                                    // x14 = (k * 25 + y) * 5 + x
-                        ldursb x14, [x20, x14]
-                                    // load weights[k][y][x] into x14
-                        mul x13, x13, x14
-                                    // multiply input[j+y][i+x] * weights[k][y][x]
-                        add x4, x4, x13
-                                    // add to sum
-                        add x12, x12, #1
-                                    // x += 1
-                        b loopx
-                    loopxdone:
-                        add x11, x11, #1
-                                    // y += 1
-                        b loopy
-                loopydone:
-                    add x10, x10, #1
-                                // i += 1
-                    mov x11, #24
-                    mul x11, x9, x11
-                                // x11 = j * 24
-                    add x11, x11, x10
-                                // x11 = j *24 + i
-                    lsl x11, x11, #2
-                                // x11 = (j*24+i) * 4
-                    add x11, x5, x11
-                                // x11 = conv_output[j][i]
-                    add x12, x21, x0
-                                // x12 = address of biases[k]
-                    ldursb x6, [x12]
-                                // x6 = biases[k]
-                    add x6, x6, x4
-                                // sum + biases[k]
-                    mov x7, x0
-                                // save k to x7
-                    mov x0, x6
-                                // move sum + biases[k] to x0
-                    bl relu
-                                // call relu
-                    stur x0, [x11]
-                                // store relu return in conv_output[j][i]
-                    mov x0, x7
-                                // restore k to x0
-                    add x10, x10, #1
-                                // i += 1
-                    b loopi
-            loopidone:
-                add x9, x9, #1
-                            // j += 1
+                        loopydone:
+                        lsl x0, x3, #2
+                        ldurb x0, [x21, x11]
+                        // x0 = biases[k]
+                        add x0, x0, x10
+                        bl relu
+                        mov x11, #24
+                        mul x11, x11, x4
+                        add x11, x11, x5
+                        lsl x11, x11, #2
+                        // x11 = (24*j + i) * 4
+                        sturb x0, [x9, x11]
+
+                        add x5, x5, #1
+                        b loopi
+
+                loopidone:
+                add x4, x4, #1
                 b loopj
-            
-    loopjdone:
-        mov x1, x5
-        mov x2, x3
-        // make sure x0 = k, x1 = input, x2 = output
-        //bl max_pool
-        add x0, x0, #1
-                    // k += 1
+
+        loopjdone:
+
+        mov x0, x3
+        mov x1, x9
+        mov x2, x22
+        bl max_pool
+
+        add x3, x3, #1
         b loopk
     
     loopkdone:
@@ -184,7 +147,8 @@ convolution_max_pool:
     ldur x19, [sp, #8]
     ldur x20, [sp, #16]
     ldur x21, [sp, #24]
-    add sp, sp, #32
+    ldur x22, [sp, #32]
+    add sp, sp, #48
     BR LR
 
 // ---------- MaxPool Procedure (Leaf) ----------
@@ -193,90 +157,75 @@ convolution_max_pool:
 //   X1: input (base pointer to conv_output matrix)
 //   X2: output (base pointer to conv_max_pool_output matrix)
 max_pool:
-    mov x9, #0
-                // j = 0
+    mov x4, #0
     mloopj:
-        cmp x9, #12
-                // j < MAX_POOL_OUTPUT_SIZE
-        b.ge mloopjdone
-                // j loop done
-        
-        mov x10, #0
-                // i = 0
+        cmp x4, #12
+        b.ge endmloopj
+
+        mov x5, #0
         mloopi:
-            cmp x10, #12
-                    // i < MAX_POOL_OUTPUT_SIZE
-            b.ge mloopidone
-                    // i loop done
-            
-            mov x13, #0
-                    // max = 0
-            mov x11, #0
-                    // y = 0
+            cmp x5, #12
+            b.ge endmloopi
+
+            mov x9, #0
+            // max = 0
+            mov x6, #0
             mloopy:
-                cmp x11, #2
-                        // y < MAX_POOL_WINDOW_SIZE
-                b.ge mloopydone
-                        // y loop done
-                
-                mov x12, #0
-                        // x = 0
+                cmp x6, #2
+                b.ge endmloopy
+
+                mov x7, #0
                 mloopx:
-                    cmp x12, #2
-                            // x < MAX_POOL_WINDOW_SIZE
-                    b.ge mloopxdone
-                            // x loop done
-                    
-                    lsl x14, x9, #1
-                            // x14 = j * MAX_POOL_STRIDE (2)
-                    add x14, x14, x11
-                            // x14 = j * MAX_POOL_STRIDE + y
-                    
-                    lsl x15, x10, #1
-                            // x15 = i * MAX_POOL_STRIDE (2)
-                    add x15, x15, x12
-                            // x15 = i * MAX_POOL_STRIDE + x
-                    mov x16, #23
-                    mul x14, x14, x16
-                            // multiply by # of rows
-                    add x14, x14, x15
-                            // add offset
-                    ldur x14, [x1, x14]
-                            // get value of input
-                    
-                    cmp x14, x13
-                            // compare input with max
+                    cmp x7, #2
+                    b.ge endmloopx
+
+                    lsl x11, x4, #1
+                    add x11, x11, x6
+                    mov x12, #24
+                    mul x11, x11, x12 
+                    // x11 = (j * 2 + y) * 24
+                    lsl x12, x5, #1
+                    add x12, x12, x7
+                    add x11, x11, x12
+                    lsl x11, x11, #2
+                    // x11 = (24*(j*2+y)+(i*2+y))*4
+                    ldurb x10, [x1, x11]
+                    // x10 = input[x11]
+                    cmp x10, x9
                     b.gt replace
-                    add x12, x12, #1
+
+
+                    add x7, x7, #1
                     b mloopx
 
                     replace:
-                        mov x13, x14
-                        add x12, x12, #1
+                        mov x9, x10
+                        add x7, x7, #1
                         b mloopx
-                mloopxdone:
-                    add x11, x11, #1
-                    b mloopy
-            mloopydone:
-                mov x11, #6
-                mul x11, x11, x0
-                        // x11 = k * 6
-                mov x12, #12
-                mul x12, x9, x12
-                        // x12 = j * 12
-                add x11, x11, x12
-                add x11, x11, x10
-                        // x11 = k + j + i (times row amounts)
-                stur x13, [x2, x11]
-                        // output[k][j][i] = max
-                add x10, x10, #1
-                        // i += 1
-                b mloopi
-        mloopidone:
-            add x9, x9, #1
-            b mloopj
-    mloopjdone:
-        BR LR
+
+                endmloopx:
+                add x6, x6, #1
+                b mloopy
+
+            endmloopy:
+            mov x11, #144
+            mul x11, x11, x0
+            mov x12, #12
+            mul x12, x12, x4
+            add x11, x11, x12
+            add x11, x11, x5
+            lsl x11, x11, #2
+            sturb x9, [x2, x11]
+
+            add x5, x5, #1
+            b mloopi
+
+        endmloopi:
+        add x4, x4, #1
+        b mloopj
+        
+    endmloopj:
+    BR LR
 
 // ---------- ReLU Procedure (Leaf) ----------
 // Parameters:
