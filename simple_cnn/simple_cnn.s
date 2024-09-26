@@ -98,7 +98,7 @@ convolution_max_pool:
                                     add x12, x12, x13
                                     add x12, x12, x7
                                     lsl x12, x12, #2
-                                    ldurb x12, [x20, x12]
+                                    ldursb x12, [x20, x12]
 
                                     mul x11, x11, x12
                                     add x10, x10, x11
@@ -113,7 +113,7 @@ convolution_max_pool:
                         
                         loopydone:
                         lsl x0, x3, #2
-                        ldurb x0, [x21, x11]
+                        ldursb x0, [x21, x0]
                         // x0 = biases[k]
                         add x0, x0, x10
                         bl relu
