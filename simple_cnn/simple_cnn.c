@@ -25,7 +25,7 @@ void convolution_max_pool(IMAGE input, CONV_WEIGHT_MATRIX weights, CONV_BIAS_MAT
 					for (int x = 0; x < CONV_KERNEL_SIZE; x++)
 					{
 						_sum += input[j + y][i + x] * weights[k][y][x];
-						printf("input:%d, j:%d, i:%d, k:%d, y:%d, x:%d, weight:%d, sum:%d\n ", input[j + y][i + x], j, i, k, y, x, weights[k][y][x], _sum);
+						//printf("input:%d, j:%d, i:%d, k:%d, y:%d, x:%d, weight:%d, sum:%d\n ", input[j + y][i + x], j, i, k, y, x, weights[k][y][x], _sum);
 					}
 				}
 				convolution_output[j][i] = relu(_sum + biases[k]);
