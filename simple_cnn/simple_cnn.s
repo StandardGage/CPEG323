@@ -90,6 +90,8 @@ convolution_max_pool:
                                     // x12 = i + x
                                     add x11, x11, x12
                                     ldurb x11, [x19, x11]
+                                    // x11 = input[j+y][i+x]
+                                    // error here
 
                                     mov x12, #25
                                     mul x12, x12, x3
@@ -97,8 +99,8 @@ convolution_max_pool:
                                     mul x13 , x13, x6
                                     add x12, x12, x13
                                     add x12, x12, x7
-                                    //lsl x12, x12, #2
                                     ldursb x12, [x20, x12]
+                                    // x12 = weights[k][y][x]
 
                                     mul x11, x11, x12
                                     add x10, x10, x11

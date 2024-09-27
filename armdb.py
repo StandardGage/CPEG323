@@ -108,10 +108,15 @@ def print_regs(reg_list, transform=str):
         print()
 
 
-def main():
-    with open(sys.argv[1],'r') as f:
+
+def main(file_name=None, init=None):
+    file_name = sys.argv[1] if file_name is None else file_name
+    with open(file_name,'r') as f:
         armsim.parse(f.readlines())
     armsim.check_static_rules()
+
+    if init is not None:
+        init()
     
     #Aliases for armsim fields (reduce using armsim. everywhere)
     reg = armsim.reg
