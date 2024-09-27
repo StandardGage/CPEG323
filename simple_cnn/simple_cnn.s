@@ -85,7 +85,7 @@ convolution_max_pool:
                                     add x11, x4, x6
                                     mov x12, #28
                                     mul x11, x11, x12
-                                    // x11 = 24*(j+y)
+                                    // x11 = 28*(j+y)
                                     add x12, x5, x7
                                     // x12 = i + x
                                     add x11, x11, x12
@@ -97,7 +97,7 @@ convolution_max_pool:
                                     mul x13 , x13, x6
                                     add x12, x12, x13
                                     add x12, x12, x7
-                                    lsl x12, x12, #2
+                                    //lsl x12, x12, #2
                                     ldursb x12, [x20, x12]
 
                                     mul x11, x11, x12
@@ -112,8 +112,8 @@ convolution_max_pool:
                             b loopy
                         
                         loopydone:
-                        lsl x0, x3, #2
-                        ldursb x0, [x21, x0]
+                        //lsl x0, x3, #2
+                        ldursb x0, [x21, x3]
                         // x0 = biases[k]
                         add x0, x0, x10
                         bl relu
@@ -122,7 +122,7 @@ convolution_max_pool:
                         add x11, x11, x5
                         lsl x11, x11, #2
                         // x11 = (24*j + i) * 4
-                        sturb x0, [x9, x11]
+                        sturw x0, [x9, x11]
 
                         add x5, x5, #1
                         b loopi
@@ -189,7 +189,7 @@ max_pool:
                     add x11, x11, x12
                     lsl x11, x11, #2
                     // x11 = (24*(j*2+y)+(i*2+y))*4
-                    ldurb x10, [x1, x11]
+                    ldursw x10, [x1, x11]
                     // x10 = input[x11]
                     cmp x10, x9
                     b.gt replace
@@ -215,7 +215,7 @@ max_pool:
             add x11, x11, x12
             add x11, x11, x5
             lsl x11, x11, #2
-            sturb x9, [x2, x11]
+            sturw x9, [x2, x11]
 
             add x5, x5, #1
             b mloopi
