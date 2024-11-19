@@ -15,13 +15,6 @@ LDUR X2, =weights
 LDUR X3, =bias
 LDUR X4, =output
 
-// stall 5 here
-BL convolution
-exit:
-// Exit sys call terminates program
-MOV X8, #93
-SVC 0
-
 // ---------- Convolution Procedure ----------
 // Parameters:
 // x0 = n
@@ -341,7 +334,8 @@ CMP X23, #0
 SUB X8, X24, #2
 // stall 5 here, neccessary
 B.GE relu_skip
-MOV X23, XZR
+ADD X20, X20, #1
+B convolution_loop_i
 relu_skip:
 // stall 1 here, acceptable to alternative
 MUL X8, X8, X19
@@ -363,13 +357,289 @@ convolution_loop_j:
 // exit if j >= n - 2
 SUB X8, X24, #2
 
-// stall 4 here
 CMP X19, X8
+// i = 0
+MOV X20, XZR
 // stall 5 here
 B.GE convolution_exit_loop_j
 
-// i = 0
-MOV X20, XZR
+// -------------------I == 0-------------------
+// y = 0, sum = 0
+MOV X21, XZR
+// y loop start
+MOV X23, XZR
+
+
+// -------------------Y == 0-------------------
+// x = 0
+MOV X22, XZR
+
+// -------------------X == 0-------------------
+// x8 = input[j + y][i + x] = *(input + ((j + y) * n + i + x) * 4)
+ADD X8, X19, X21
+// stall 1 here, acceptable since x24 is n
+MUL X8, X8, X24
+ADD X8, X8, X20
+ADD X8, X8, X22
+LSL X8, X8, #2
+ADD X8, X8, X25
+LDURSW X8, [X8]
+// x9 = weights[y][x] = *(weights + y * 3 + x)
+LSL x9, x21, #1
+ADD x9, x9, x21
+ADD X9, X9, X22
+ADD X9, X26, X9
+
+LDURSB X9, [X9]
+// sum += input[j + y][i + x] * weights[y][x]
+
+// x++
+ADD X22, X22, #1
+// stall 1 here, acceptable to alternative
+MUL X8, X8, X9
+ADD X23, X23, X8
+//-----------------END X == 0-------------------
+
+// ---------------------X == 1---------------------
+// x8 = input[j + y][i + x] = *(input + ((j + y) * n + i + x) * 4)
+ADD X8, X19, X21
+// stall 1 here, acceptable since x24 is n
+MUL X8, X8, X24
+ADD X8, X8, X20
+ADD X8, X8, X22
+LSL X8, X8, #2
+ADD X8, X8, X25
+LDURSW X8, [X8]
+// x9 = weights[y][x] = *(weights + y * 3 + x)
+LSL x9, x21, #1
+ADD x9, x9, x21
+ADD X9, X9, X22
+ADD X9, X26, X9
+
+LDURSB X9, [X9]
+// sum += input[j + y][i + x] * weights[y][x]
+
+// x++
+ADD X22, X22, #1
+// stall 1 here, acceptable to alternative
+MUL X8, X8, X9
+ADD X23, X23, X8
+//-----------------END X == 1-------------------
+
+// ---------------X == 2-------------------
+// x8 = input[j + y][i + x] = *(input + ((j + y) * n + i + x) * 4)
+ADD X8, X19, X21
+// stall 1 here, acceptable since x24 is n
+MUL X8, X8, X24
+ADD X8, X8, X20
+ADD X8, X8, X22
+LSL X8, X8, #2
+ADD X8, X8, X25
+LDURSW X8, [X8]
+// x9 = weights[y][x] = *(weights + y * 3 + x)
+LSL x9, x21, #1
+ADD x9, x9, x21
+ADD X9, X9, X22
+ADD X9, X26, X9
+
+LDURSB X9, [X9]
+// sum += input[j + y][i + x] * weights[y][x]
+
+// x++
+ADD X22, X22, #1
+// stall 1 here, acceptable to alternative
+MUL X8, X8, X9
+ADD X23, X23, X8
+//-----------------END X == 2-------------------
+
+// y++
+ADD X21, X21, #1
+// -------------------END Y == 0-------------------
+
+// -------------------Y == 1-------------------
+// x = 0
+MOV X22, XZR
+
+// -------------------X == 0-------------------
+// x8 = input[j + y][i + x] = *(input + ((j + y) * n + i + x) * 4)
+ADD X8, X19, X21
+// stall 1 here, acceptable since x24 is n
+MUL X8, X8, X24
+ADD X8, X8, X20
+ADD X8, X8, X22
+LSL X8, X8, #2
+ADD X8, X8, X25
+LDURSW X8, [X8]
+// x9 = weights[y][x] = *(weights + y * 3 + x)
+LSL x9, x21, #1
+ADD x9, x9, x21
+ADD X9, X9, X22
+ADD X9, X26, X9
+
+LDURSB X9, [X9]
+// sum += input[j + y][i + x] * weights[y][x]
+
+// x++
+ADD X22, X22, #1
+// stall 1 here, acceptable to alternative
+MUL X8, X8, X9
+ADD X23, X23, X8
+//-----------------END X == 0-------------------
+
+// ---------------------X == 1---------------------
+// x8 = input[j + y][i + x] = *(input + ((j + y) * n + i + x) * 4)
+ADD X8, X19, X21
+// stall 1 here, acceptable since x24 is n
+MUL X8, X8, X24
+ADD X8, X8, X20
+ADD X8, X8, X22
+LSL X8, X8, #2
+ADD X8, X8, X25
+LDURSW X8, [X8]
+// x9 = weights[y][x] = *(weights + y * 3 + x)
+LSL x9, x21, #1
+ADD x9, x9, x21
+ADD X9, X9, X22
+ADD X9, X26, X9
+
+LDURSB X9, [X9]
+// sum += input[j + y][i + x] * weights[y][x]
+
+// x++
+ADD X22, X22, #1
+// stall 1 here, acceptable to alternative
+MUL X8, X8, X9
+ADD X23, X23, X8
+//-----------------END X == 1-------------------
+
+// ---------------X == 2-------------------
+// x8 = input[j + y][i + x] = *(input + ((j + y) * n + i + x) * 4)
+ADD X8, X19, X21
+// stall 1 here, acceptable since x24 is n
+MUL X8, X8, X24
+ADD X8, X8, X20
+ADD X8, X8, X22
+LSL X8, X8, #2
+ADD X8, X8, X25
+LDURSW X8, [X8]
+// x9 = weights[y][x] = *(weights + y * 3 + x)
+LSL x9, x21, #1
+ADD x9, x9, x21
+ADD X9, X9, X22
+ADD X9, X26, X9
+
+LDURSB X9, [X9]
+// sum += input[j + y][i + x] * weights[y][x]
+
+// x++
+ADD X22, X22, #1
+// stall 1 here, acceptable to alternative
+MUL X8, X8, X9
+ADD X23, X23, X8
+//-----------------END X == 2-------------------
+
+// y++
+ADD X21, X21, #1
+// -------------------END Y == 1-------------------
+
+// -------------------Y == 2-------------------
+// x = 0
+MOV X22, XZR
+
+// -------------------X == 0-------------------
+// x8 = input[j + y][i + x] = *(input + ((j + y) * n + i + x) * 4)
+ADD X8, X19, X21
+// stall 1 here, acceptable since x24 is n
+MUL X8, X8, X24
+ADD X8, X8, X20
+ADD X8, X8, X22
+LSL X8, X8, #2
+ADD X8, X8, X25
+LDURSW X8, [X8]
+// x9 = weights[y][x] = *(weights + y * 3 + x)
+LSL x9, x21, #1
+ADD x9, x9, x21
+ADD X9, X9, X22
+ADD X9, X26, X9
+
+LDURSB X9, [X9]
+// sum += input[j + y][i + x] * weights[y][x]
+
+// x++
+ADD X22, X22, #1
+// stall 1 here, acceptable to alternative
+MUL X8, X8, X9
+ADD X23, X23, X8
+//-----------------END X == 0-------------------
+
+// ---------------------X == 1---------------------
+// x8 = input[j + y][i + x] = *(input + ((j + y) * n + i + x) * 4)
+ADD X8, X19, X21
+// stall 1 here, acceptable since x24 is n
+MUL X8, X8, X24
+ADD X8, X8, X20
+ADD X8, X8, X22
+LSL X8, X8, #2
+ADD X8, X8, X25
+LDURSW X8, [X8]
+// x9 = weights[y][x] = *(weights + y * 3 + x)
+LSL x9, x21, #1
+ADD x9, x9, x21
+ADD X9, X9, X22
+ADD X9, X26, X9
+
+LDURSB X9, [X9]
+// sum += input[j + y][i + x] * weights[y][x]
+
+// x++
+ADD X22, X22, #1
+// stall 1 here, acceptable to alternative
+MUL X8, X8, X9
+ADD X23, X23, X8
+//-----------------END X == 1-------------------
+
+// ---------------X == 2-------------------
+// x8 = input[j + y][i + x] = *(input + ((j + y) * n + i + x) * 4)
+ADD X8, X19, X21
+// stall 1 here, acceptable since x24 is n
+MUL X8, X8, X24
+ADD X8, X8, X20
+ADD X8, X8, X22
+LSL X8, X8, #2
+ADD X8, X8, X25
+LDURSW X8, [X8]
+// x9 = weights[y][x] = *(weights + y * 3 + x)
+LSL x9, x21, #1
+ADD x9, x9, x21
+ADD X9, X9, X22
+ADD X9, X26, X9
+
+LDURSB X9, [X9]
+// sum += input[j + y][i + x] * weights[y][x]
+
+// x++
+ADD X22, X22, #1
+// stall 1 here, acceptable to alternative
+MUL X8, X8, X9
+ADD X23, X23, X8
+//-----------------END X == 2-------------------
+
+
+// -------------------END Y == 2-------------------
+
+LDURSB X8, [X27]
+// y++
+ADD X21, X21, #1
+ADD X23, X23, X8
+// x23 = relu(sum + *bias)
+
+CMP X23, #0
+// x8 = &output + (j * (n - 2) + i) * 4
+SUB X8, X24, #2
+// stall 5 here, neccessary
+B.GE relu_skip
+ADD x20, x20, #1
+// --------------------END I == 0--------------------
 
 
 convolution_loop_i:
@@ -384,91 +654,283 @@ MOV X21, XZR
 B.GE convolution_exit_loop_i
 
 MOV X23, XZR
-convolution_loop_y:
-// exit if y >= 3
 
-// stall 4 here
-CMP X21, #3
-// stall 5 here
-B.GE convolution_exit_loop_y
-
+// -------------------Y == 0-------------------
 // x = 0
 MOV X22, XZR
-convolution_loop_x:
-// exit if x >= 3
 
-// stall 4 here
-CMP X22, #3
-// stall 5 here
-B.GE convolution_exit_loop_x
-
+// -------------------X == 0-------------------
 // x8 = input[j + y][i + x] = *(input + ((j + y) * n + i + x) * 4)
 ADD X8, X19, X21
-
-// stall 1 here
+// stall 1 here, acceptable since x24 is n
 MUL X8, X8, X24
 ADD X8, X8, X20
 ADD X8, X8, X22
-MOV X9, #4
-// stall 1 here
-MUL X8, X8, X9
+LSL X8, X8, #2
 ADD X8, X8, X25
 LDURSW X8, [X8]
 // x9 = weights[y][x] = *(weights + y * 3 + x)
-MOV X9, #3
-// stall 1 here
-MUL X9, X21, X9
+LSL x9, x21, #1
+ADD x9, x9, x21
 ADD X9, X9, X22
 ADD X9, X26, X9
 
-// stall 2 here
 LDURSB X9, [X9]
 // sum += input[j + y][i + x] * weights[y][x]
 
-// stall 1 here
+// x++
+ADD X22, X22, #1
+// stall 1 here, acceptable to alternative
 MUL X8, X8, X9
 ADD X23, X23, X8
-//  x++
+//-----------------END X == 0-------------------
+
+// ---------------------X == 1---------------------
+// x8 = input[j + y][i + x] = *(input + ((j + y) * n + i + x) * 4)
+ADD X8, X19, X21
+// stall 1 here, acceptable since x24 is n
+MUL X8, X8, X24
+ADD X8, X8, X20
+ADD X8, X8, X22
+LSL X8, X8, #2
+ADD X8, X8, X25
+LDURSW X8, [X8]
+// x9 = weights[y][x] = *(weights + y * 3 + x)
+LSL x9, x21, #1
+ADD x9, x9, x21
+ADD X9, X9, X22
+ADD X9, X26, X9
+
+LDURSB X9, [X9]
+// sum += input[j + y][i + x] * weights[y][x]
+
+// x++
 ADD X22, X22, #1
+// stall 1 here, acceptable to alternative
+MUL X8, X8, X9
+ADD X23, X23, X8
+//-----------------END X == 1-------------------
 
-// stall 5 here
-B convolution_loop_x
+// ---------------X == 2-------------------
+// x8 = input[j + y][i + x] = *(input + ((j + y) * n + i + x) * 4)
+ADD X8, X19, X21
+// stall 1 here, acceptable since x24 is n
+MUL X8, X8, X24
+ADD X8, X8, X20
+ADD X8, X8, X22
+LSL X8, X8, #2
+ADD X8, X8, X25
+LDURSW X8, [X8]
+// x9 = weights[y][x] = *(weights + y * 3 + x)
+LSL x9, x21, #1
+ADD x9, x9, x21
+ADD X9, X9, X22
+ADD X9, X26, X9
 
-convolution_exit_loop_x:
+LDURSB X9, [X9]
+// sum += input[j + y][i + x] * weights[y][x]
+
+// x++
+ADD X22, X22, #1
+// stall 1 here, acceptable to alternative
+MUL X8, X8, X9
+ADD X23, X23, X8
+//-----------------END X == 2-------------------
+
 // y++
 ADD X21, X21, #1
+// -------------------END Y == 0-------------------
 
-// stall 5 here
-B convolution_loop_y
+// -------------------Y == 1-------------------
+// x = 0
+MOV X22, XZR
 
-convolution_exit_loop_y:
-// sum += *bias
+// -------------------X == 0-------------------
+// x8 = input[j + y][i + x] = *(input + ((j + y) * n + i + x) * 4)
+ADD X8, X19, X21
+// stall 1 here, acceptable since x24 is n
+MUL X8, X8, X24
+ADD X8, X8, X20
+ADD X8, X8, X22
+LSL X8, X8, #2
+ADD X8, X8, X25
+LDURSW X8, [X8]
+// x9 = weights[y][x] = *(weights + y * 3 + x)
+LSL x9, x21, #1
+ADD x9, x9, x21
+ADD X9, X9, X22
+ADD X9, X26, X9
 
-// stall 2 here
-LDURSB X8, [X27]
+LDURSB X9, [X9]
+// sum += input[j + y][i + x] * weights[y][x]
+
+// x++
+ADD X22, X22, #1
+// stall 1 here, acceptable to alternative
+MUL X8, X8, X9
 ADD X23, X23, X8
-// x0 = relu(sum)
-MOV X0, X23
-// stall 5 here
-BL relu
+//-----------------END X == 0-------------------
+
+// ---------------------X == 1---------------------
+// x8 = input[j + y][i + x] = *(input + ((j + y) * n + i + x) * 4)
+ADD X8, X19, X21
+// stall 1 here, acceptable since x24 is n
+MUL X8, X8, X24
+ADD X8, X8, X20
+ADD X8, X8, X22
+LSL X8, X8, #2
+ADD X8, X8, X25
+LDURSW X8, [X8]
+// x9 = weights[y][x] = *(weights + y * 3 + x)
+LSL x9, x21, #1
+ADD x9, x9, x21
+ADD X9, X9, X22
+ADD X9, X26, X9
+
+LDURSB X9, [X9]
+// sum += input[j + y][i + x] * weights[y][x]
+
+// x++
+ADD X22, X22, #1
+// stall 1 here, acceptable to alternative
+MUL X8, X8, X9
+ADD X23, X23, X8
+//-----------------END X == 1-------------------
+
+// ---------------X == 2-------------------
+// x8 = input[j + y][i + x] = *(input + ((j + y) * n + i + x) * 4)
+ADD X8, X19, X21
+// stall 1 here, acceptable since x24 is n
+MUL X8, X8, X24
+ADD X8, X8, X20
+ADD X8, X8, X22
+LSL X8, X8, #2
+ADD X8, X8, X25
+LDURSW X8, [X8]
+// x9 = weights[y][x] = *(weights + y * 3 + x)
+LSL x9, x21, #1
+ADD x9, x9, x21
+ADD X9, X9, X22
+ADD X9, X26, X9
+
+LDURSB X9, [X9]
+// sum += input[j + y][i + x] * weights[y][x]
+
+// x++
+ADD X22, X22, #1
+// stall 1 here, acceptable to alternative
+MUL X8, X8, X9
+ADD X23, X23, X8
+//-----------------END X == 2-------------------
+
+// y++
+ADD X21, X21, #1
+// -------------------END Y == 1-------------------
+
+// -------------------Y == 2-------------------
+// x = 0
+MOV X22, XZR
+
+// -------------------X == 0-------------------
+// x8 = input[j + y][i + x] = *(input + ((j + y) * n + i + x) * 4)
+ADD X8, X19, X21
+// stall 1 here, acceptable since x24 is n
+MUL X8, X8, X24
+ADD X8, X8, X20
+ADD X8, X8, X22
+LSL X8, X8, #2
+ADD X8, X8, X25
+LDURSW X8, [X8]
+// x9 = weights[y][x] = *(weights + y * 3 + x)
+LSL x9, x21, #1
+ADD x9, x9, x21
+ADD X9, X9, X22
+ADD X9, X26, X9
+
+LDURSB X9, [X9]
+// sum += input[j + y][i + x] * weights[y][x]
+
+// x++
+ADD X22, X22, #1
+// stall 1 here, acceptable to alternative
+MUL X8, X8, X9
+ADD X23, X23, X8
+//-----------------END X == 0-------------------
+
+// ---------------------X == 1---------------------
+// x8 = input[j + y][i + x] = *(input + ((j + y) * n + i + x) * 4)
+ADD X8, X19, X21
+// stall 1 here, acceptable since x24 is n
+MUL X8, X8, X24
+ADD X8, X8, X20
+ADD X8, X8, X22
+LSL X8, X8, #2
+ADD X8, X8, X25
+LDURSW X8, [X8]
+// x9 = weights[y][x] = *(weights + y * 3 + x)
+LSL x9, x21, #1
+ADD x9, x9, x21
+ADD X9, X9, X22
+ADD X9, X26, X9
+
+LDURSB X9, [X9]
+// sum += input[j + y][i + x] * weights[y][x]
+
+// x++
+ADD X22, X22, #1
+// stall 1 here, acceptable to alternative
+MUL X8, X8, X9
+ADD X23, X23, X8
+//-----------------END X == 1-------------------
+
+// ---------------X == 2-------------------
+// x8 = input[j + y][i + x] = *(input + ((j + y) * n + i + x) * 4)
+ADD X8, X19, X21
+// stall 1 here, acceptable since x24 is n
+MUL X8, X8, X24
+ADD X8, X8, X20
+ADD X8, X8, X22
+LSL X8, X8, #2
+ADD X8, X8, X25
+LDURSW X8, [X8]
+// x9 = weights[y][x] = *(weights + y * 3 + x)
+LSL x9, x21, #1
+ADD x9, x9, x21
+ADD X9, X9, X22
+ADD X9, X26, X9
+
+LDURSB X9, [X9]
+// sum += input[j + y][i + x] * weights[y][x]
+
+// x++
+ADD X22, X22, #1
+// stall 1 here, acceptable to alternative
+MUL X8, X8, X9
+ADD X23, X23, X8
+//-----------------END X == 2-------------------
+
+
+// -------------------END Y == 2-------------------
+
+// sum += *bias
+LDURSB X8, [X27]
+// y++
+ADD X21, X21, #1
+ADD X23, X23, X8
+// x23 = relu(sum + *bias)
+
+CMP X23, #0
 // x8 = &output + (j * (n - 2) + i) * 4
 SUB X8, X24, #2
-// stall 1 here
-MUL X8, X8, X19
-ADD X8, X8, X20
-MOV X9, #4
-// stall 1 here
-MUL X8, X8, X9
-ADD X8, X28, X8
-// output[j][i] = sum
-STURW X0, [X8]
+// stall 5 here, neccessary
+B.GE relu_skip
 // i++
 ADD X20, X20, #1
-// stall 5 here
+// stall 5 here, neccessary
 B convolution_loop_i
 
-convolution_exit_loop_i:
 
+convolution_exit_loop_i:
 // j++
 ADD X19, X19, #1
 // stall 5 here
@@ -488,19 +950,9 @@ LDUR X27, [SP, #64]
 LDUR X28, [SP, #72]
 LDUR LR, [SP, #80]
 ADD SP, SP, #96
-BR LR
+//BR LR
 
-// ---------- RELU Procedure ----------
-// Parameters:
-// x0 = x
-// Returns:
-// x0 = max(0, x)
-relu:
-// stall 4 here
-CMP X0, #0
-// stall 5 here
-B.GE relu_return
-MOV X0, XZR
-relu_return:
-// stall 5 here
-BR LR
+exit:
+// Exit sys call terminates program
+MOV X8, #93
+SVC 0
