@@ -14,6 +14,8 @@ LDUR X1, =input
 LDUR X2, =weights
 LDUR X3, =bias
 LDUR X4, =output
+
+// stall 5 here
 BL convolution
 exit:
 // Exit sys call terminates program
@@ -65,7 +67,10 @@ MOV X19, XZR
 convolution_loop_j:
 // exit if j >= n - 2
 SUB X8, X24, #2
+
+// stall 4 here
 CMP X19, X8
+// stall 5 here
 B.GE convolution_exit_loop_j
 
 // i = 0
@@ -73,7 +78,10 @@ MOV X20, XZR
 convolution_loop_i:
 // exit if i >= n - 2
 SUB X8, X24, #2
+
+// stall 4 here
 CMP X20, X8
+// stall 5 here
 B.GE convolution_exit_loop_i
 
 // y = 0, sum = 0
@@ -81,22 +89,31 @@ MOV X21, XZR
 MOV X23, XZR
 convolution_loop_y:
 // exit if y >= 3
+
+// stall 4 here
 CMP X21, #3
+// stall 5 here
 B.GE convolution_exit_loop_y
 
 // x = 0
 MOV X22, XZR
 convolution_loop_x:
 // exit if x >= 3
+
+// stall 4 here
 CMP X22, #3
+// stall 5 here
 B.GE convolution_exit_loop_x
 
 // x8 = input[j + y][i + x] = *(input + ((j + y) * n + i + x) * 4)
 ADD X8, X19, X21
+
+// stall 1 here
 MUL X8, X8, X24
 ADD X8, X8, X20
 ADD X8, X8, X22
 MOV X9, #4
+// stall 1 here
 MUL X8, X8, X9
 ADD X8, X8, X25
 LDURSW X8, [X8]
@@ -105,43 +122,58 @@ MOV X9, #3
 MUL X9, X21, X9
 ADD X9, X9, X22
 ADD X9, X26, X9
+
+// stall 2 here
 LDURSB X9, [X9]
 // sum += input[j + y][i + x] * weights[y][x]
+
+// stall 1 here
 MUL X8, X8, X9
 ADD X23, X23, X8
 //  x++
 ADD X22, X22, #1
+
+// stall 5 here
 B convolution_loop_x
 
 convolution_exit_loop_x:
 // y++
 ADD X21, X21, #1
+
+// stall 5 here
 B convolution_loop_y
 
 convolution_exit_loop_y:
 // sum += *bias
+
+// stall 2 here
 LDURSB X8, [X27]
 ADD X23, X23, X8
 // x0 = relu(sum)
 MOV X0, X23
+// stall 5 here
 BL relu
 // x8 = &output + (j * (n - 2) + i) * 4
 SUB X8, X24, #2
+// stall 1 here
 MUL X8, X8, X19
 ADD X8, X8, X20
 MOV X9, #4
+// stall 1 here
 MUL X8, X8, X9
 ADD X8, X28, X8
 // output[j][i] = sum
 STURW X0, [X8]
 // i++
 ADD X20, X20, #1
+// stall 5 here
 B convolution_loop_i
 
 convolution_exit_loop_i:
 
 // j++
 ADD X19, X19, #1
+// stall 5 here
 B convolution_loop_j
 
 convolution_exit_loop_j:
@@ -166,8 +198,11 @@ BR LR
 // Returns:
 // x0 = max(0, x)
 relu:
+// stall 4 here
 CMP X0, #0
+// stall 5 here
 B.GE relu_return
 MOV X0, XZR
 relu_return:
+// stall 5 here
 BR LR
