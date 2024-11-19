@@ -72,21 +72,9 @@ MOV X22, XZR
 
 // -------------------X == 0-------------------
 // x8 = input[j + y][i + x] = *(input + ((j + y) * n + i + x) * 4)
-ADD X8, X19, X21
-// stall 1 here, acceptable since x24 is n
-MUL X8, X8, X24
-ADD X8, X8, X20
-ADD X8, X8, X22
-LSL X8, X8, #2
-ADD X8, X8, X25
-LDURSW X8, [X8]
-// x9 = weights[y][x] = *(weights + y * 3 + x)
-LSL x9, x21, #1
-ADD x9, x9, x21
-ADD X9, X9, X22
-ADD X9, X26, X9
-
-LDURSB X9, [X9]
+// initial input values will be 0
+LDURSW X8, [X25]
+LDURSB X9, [X26]
 // sum += input[j + y][i + x] * weights[y][x]
 
 // x++
@@ -100,7 +88,7 @@ ADD X23, X23, X8
 // x8 = input[j + y][i + x] = *(input + ((j + y) * n + i + x) * 4)
 ADD X8, X19, X21
 // stall 1 here, acceptable since x24 is n
-MUL X8, X8, X24
+MUL X8, X19, X24
 ADD X8, X8, X20
 ADD X8, X8, X22
 LSL X8, X8, #2
