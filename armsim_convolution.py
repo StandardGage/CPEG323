@@ -36,6 +36,8 @@ def convolution(n, _input, weights, bias):
                 for x in range(3):
                     _sum += _input[(j + y, i + x)] * weights[(y, x)]
             output[(j, i)] = relu(_sum + bias[(0,)])
+            if(i==0 and j==0):
+                print(relu(_sum + bias[(0,)]))
     return output
 
 def relu(x):
