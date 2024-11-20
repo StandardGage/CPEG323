@@ -55,8 +55,6 @@ MOV X26, X2
 MOV X27, X3
 MOV X28, X4
 
-//B convolution
-
 // i and j always run at least once (so get that done without branching)
 
 // -------------------Y == 0-------------------
@@ -199,21 +197,6 @@ AND X23, X23, X9
 STURW X23, [X28]
 ADD X20, X20, #1
 B convolution_loop_i
-
-
-relu_skip:
-// stall 1 here, acceptable to alternative
-SUB X8, X24, #2
-MUL X8, X8, X19
-ADD X8, X8, X20
-LSL X8, X8, #2
-// output[j][i] = relu(sum + *bias)
-STURW X23, [X28, X8]
-// i++
-ADD X20, X20, #1
-// stall 5 here
-B convolution_loop_i
-
 
 
 convolution_loop_j:
@@ -578,17 +561,16 @@ ADD X23, X23, X8
 LDURSB X8, [X27]
 ADD X23, X23, X8
 // x23 = relu(sum + *bias)
-
-CMP X23, #0
 // x8 = &output + (j * (n - 2) + i) * 4
 //SUB X8, X24, #2
 // stall 5 here, neccessary
-B.GE relu_skip
-MOV x23, XZR
 SUB X8, X24, #2
 MUL X8, X8, X19
 ADD X8, X8, X20
 LSL X8, X8, #2
+ASR X9, X23, #64
+EOR x9, x9, #-1
+AND X23, X23, X9
 STURW X23, [X28, X8]
 // i++
 ADD X20, X20, #1
