@@ -28,6 +28,7 @@ main:
 // x27 = bias
 // x28 = &output
 // x5-x16, x8-x9, x10-x15: temporary registers (within allowed range)
+
     // Preserve LR and saved registers
     SUB SP, SP, #96
     STUR X19, [SP, #0]
@@ -42,66 +43,54 @@ main:
 
     // Preserve Parameters
     MOV X24, X0           
-    LDUR X25, =input          
-    LDUR X26, =weights 
-    // Load bias   
-    LDUR X27, =bias   
-    LDURSB X27, [X27]    
-    LDUR X28, =output           
+    LDUR X25, =input      
+    LDUR X26, =weights    
+    LDUR X27, =bias       
+    LDURSB X27, [X27]     
+    LDUR X28, =output     
+
     
 
     // Start of convolution loops
 convolution_loop_j:
-    // exit if j >= n - 2
-    SUB X8, X24, #2          
-    // X8 = n - 2
-    CMP X19, X8
-    // i = 0
-    MOV X20, XZR
-    B.GE convolution_exit_loop_j
-
     // Precompute input_row_base = &input + j * n * 4
-    MUL X5, X19, X24         
+    MUL X5, X19, X24      
     // X5 = j * n
-    LSL X5, X5, #2           
+    LSL X5, X5, #2        
     // X5 = j * n * 4
-    ADD X10, X25, X5         
+    ADD X10, X25, X5      
     // X10 = input_row_base
 
     // Precompute output_row_base = &output + j * (n - 2) * 4
-    SUB X8, X24, #2          
+    SUB X0, X24, #2       
     // X8 = n - 2
-    MUL X6, X19, X8          
+    MUL X6, X19, X0       
     // X6 = j * (n - 2)
-    LSL X6, X6, #2           
+    LSL X6, X6, #2        
     // X6 = j * (n - 2) * 4
-    ADD X11, X28, X6         
+    ADD X11, X28, X6      
     // X11 = output_row_base
 
     // Precompute constants
-    LSL X7, X24, #2          
+    LSL X7, X24, #2       
     // X7 = n * 4
-    ADD X16, X7, X7          
+    ADD X16, X7, X7       
     // X16 = 2 * n * 4
 
+    // Initialize i = 0
+    MOV X20, XZR
 
 convolution_loop_i:
-    // exit if i >= n - 2
-    SUB X8, X24, #2
-    CMP X20, X8
     // Precompute input_element_base = input_row_base + i * 4
-    LSL X8, X20, #2           
-    B.GE convolution_exit_loop_i
-
-    ADD X12, X10, X8          
+    LSL X8, X20, #2       
+    // X8 = i * 4
+    ADD X12, X10, X8      
     // X12 = input_element_base
 
     // Precompute output_addr = output_row_base + i * 4
-    ADD X13, X11, X8          
+    ADD X13, X11, X8      
     // X13 = output_addr
 
-    // Initialize sum
-    MOV X23, XZR
 
     // Unrolled convolution operation
     // Y = 0
@@ -123,8 +112,9 @@ convolution_loop_i:
     ADD X23, X23, X8
 
     // Y = 1
-    ADD X14, X12, X7          
+    ADD X14, X12, X7      
     // X14 = input_element_base + n * 4
+
     // X = 0
     LDURSW X8, [X14]
     LDURSB X9, [X26, #3]
@@ -144,8 +134,9 @@ convolution_loop_i:
     ADD X23, X23, X8
 
     // Y = 2
-    ADD X15, X12, X16         
+    ADD X15, X12, X16     
     // X15 = input_element_base + 2 * n * 4
+
     // X = 0
     LDURSW X8, [X15]
     LDURSB X9, [X26, #6]
@@ -166,23 +157,30 @@ convolution_loop_i:
 
     // Add bias and apply ReLU
     ADD X23, X23, X27
-    ASR X9, X23, #63          
+    ASR X9, X23, #63      
     // Check if negative
     EOR X9, X9, X23
-    AND X23, X9, X23          
+    AND X23, X9, X23      
     // Apply ReLU
 
     // Store the result
     STURW X23, [X13]
 
-    // Increment i and loop
+    // Increment i
     ADD X20, X20, #1
-    B convolution_loop_i
 
-convolution_exit_loop_i:
-    // Increment j and loop
+    // Check if i < n - 2     
+    // X8 = n - 2
+    CMP X20, X0
+    B.LT convolution_loop_i
+
+    // Increment j
     ADD X19, X19, #1
-    B convolution_loop_j
+
+    // Check if j < n - 2 
+    // X8 = n - 2
+    CMP X19, X0
+    B.LT convolution_loop_j
 
 convolution_exit_loop_j:
     // Restore LR and saved registers
