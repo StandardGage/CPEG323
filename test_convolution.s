@@ -52,7 +52,7 @@ STUR LR, [SP, #80]
 MOV X24, X0
 MOV X25, X1
 MOV X26, X2
-MOV X27, X3
+LDURSB X27, [X3]
 MOV X28, X4
 
 // i and j always run at least once (so get that done without branching)
@@ -183,8 +183,8 @@ ADD X23, X23, X8
 
 
 // -------------------END Y == 2-------------------
-LDURSB X8, [X27]
-ADD X23, X23, X8
+//LDURSB X8, [X27]
+ADD X23, X23, X27
 // x23 = relu(sum + *bias)
 
 // relu sum for j = 0, i = 0
@@ -367,10 +367,10 @@ ADD X23, X23, X8
 
 // -------------------END Y == 2-------------------
 
-LDURSB X8, [X27]
+//LDURSB X8, [X27]
 
 ADD x20, x20, #1
-ADD X23, X23, X8
+ADD X23, X23, X27
 // x23 = relu(sum + *bias)
 
 CMP X23, #0
@@ -558,8 +558,8 @@ ADD X23, X23, X8
 // -------------------END Y == 2-------------------
 
 // sum += *bias
-LDURSB X8, [X27]
-ADD X23, X23, X8
+//LDURSB X8, [X27]
+ADD X23, X23, X27
 // x23 = relu(sum + *bias)
 // x8 = &output + (j * (n - 2) + i) * 4
 //SUB X8, X24, #2
