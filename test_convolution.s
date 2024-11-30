@@ -163,8 +163,6 @@ convolution_loop_i:
     AND X23, X9, X23      
     // Apply ReLU
 
-    // Store the result
-    STURW X23, [X13]
 
     // Increment i
     ADD X20, X20, #1
@@ -172,6 +170,8 @@ convolution_loop_i:
     // Check if i < n - 2     
     // X8 = n - 2
     CMP X20, X0
+    // Store the result
+    STURW X23, [X13]
     B.LT convolution_loop_i
 
     // Increment j
