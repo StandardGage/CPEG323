@@ -110,9 +110,9 @@ def main():
     if args.debug:
         def init():
             armsim_inject_parameters(n, _input, weights, bias)
-        armdb.main('test_convolution.s', init)
+        armdb.main('convolution.s', init)
     else:
-        with open('test_convolution.s', 'r') as f:
+        with open('convolution.s', 'r') as f:
             armsim.parse(f.readlines())
             armsim_inject_parameters(n, _input, weights, bias)
             armsim.run()

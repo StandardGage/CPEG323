@@ -1,26 +1,15 @@
 .data
-input:		.space 40000
-weights:	.space 9
-bias:		.space 1
-output:		.space 40000
+input:      .space 40000
+weights:    .space 9
+bias:       .space 1
+output:     .space 40000
 
 .text
 .global _start
 _start:
 main:
-// ---------- Main Procedure ----------
-// x0 (n) will be set by armsim_convolution.py
-LDUR X1, =input
-LDUR X2, =weights
-LDUR X3, =bias
-LDUR X4, =output
-
-// stall 5 here
-BL convolution
-exit:
-// Exit sys call terminates program
-MOV X8, #93
-SVC 0
+    // ---------- Main Procedure ----------
+    // x0 (n) will be set by armsim_convolution.py
 
 // ---------- Convolution Procedure ----------
 // Parameters:
@@ -32,177 +21,180 @@ SVC 0
 // Register Mapping:
 // x19 = j
 // x20 = i
-// x21 = y
-// x22 = x
 // x23 = sum
 // x24 = n
 // x25 = &input
 // x26 = &weights
-// x27 = &bias
+// x27 = bias
 // x28 = &output
-convolution:
-// Preserve LR and saved registers
-SUB SP, SP, #96
-STUR X19, [SP, #0]
-STUR X20, [SP, #8]
-STUR X21, [SP, #16]
-STUR X22, [SP, #24]
-STUR X23, [SP, #32]
-STUR X24, [SP, #40]
-STUR X25, [SP, #48]
-STUR X26, [SP, #56]
-STUR X27, [SP, #64]
-STUR X28, [SP, #72]
-STUR LR, [SP, #80]
+// x5-x16, x8-x9, x10-x15: temporary registers (within allowed range)
 
-// Preserve Parameters
-MOV X24, X0
-MOV X25, X1
-MOV X26, X2
-MOV X27, X3
-MOV X28, X4
+    // Preserve LR and saved registers
+    SUB SP, SP, #96
+    STUR X19, [SP, #0]
+    STUR X20, [SP, #8]
+    STUR X23, [SP, #16]
+    STUR X24, [SP, #24]
+    STUR X25, [SP, #32]
+    STUR X26, [SP, #40]
+    STUR X27, [SP, #48]
+    STUR X28, [SP, #56]
+    STUR LR, [SP, #64]
 
-// j = 0
-MOV X19, XZR
+    // Preserve Parameters
+    MOV X24, X0           
+    LDUR X25, =input      
+    LDUR X26, =weights    
+    LDUR X27, =bias       
+    LDURSB X27, [X27]     
+    LDUR X28, =output     
+
+    
+
+    // Start of convolution loops
 convolution_loop_j:
-// exit if j >= n - 2
-SUB X8, X24, #2
+    // Precompute input_row_base = &input + j * n * 4
+    MUL X5, X19, X24      
+    // X5 = j * n
+    LSL X5, X5, #2        
+    // X5 = j * n * 4
+    ADD X10, X25, X5      
+    // X10 = input_row_base
 
-// stall 4 here
-CMP X19, X8
-// stall 5 here
-B.GE convolution_exit_loop_j
+    // Precompute output_row_base = &output + j * (n - 2) * 4
+    SUB X0, X24, #2       
+    // X8 = n - 2
+    MUL X6, X19, X0       
+    // X6 = j * (n - 2)
+    LSL X6, X6, #2        
+    // X6 = j * (n - 2) * 4
+    ADD X11, X28, X6      
+    // X11 = output_row_base
 
-// i = 0
-MOV X20, XZR
+    // Precompute constants
+    LSL X7, X24, #2       
+    // X7 = n * 4
+    ADD X16, X7, X7       
+    // X16 = 2 * n * 4
+
+    // Initialize i = 0
+    MOV X20, XZR
+
 convolution_loop_i:
-// exit if i >= n - 2
-SUB X8, X24, #2
+    // Precompute input_element_base = input_row_base + i * 4
+    LSL X8, X20, #2       
+    // X8 = i * 4
+    ADD X12, X10, X8      
+    // X12 = input_element_base
 
-// stall 4 here
-CMP X20, X8
-// stall 5 here
-B.GE convolution_exit_loop_i
+    // Precompute output_addr = output_row_base + i * 4
+    ADD X13, X11, X8      
+    // X13 = output_addr
 
-// y = 0, sum = 0
-MOV X21, XZR
-MOV X23, XZR
-convolution_loop_y:
-// exit if y >= 3
 
-// stall 4 here
-CMP X21, #3
-// stall 5 here
-B.GE convolution_exit_loop_y
+    // Unrolled convolution operation
+    // Y = 0
+    // X = 0
+    LDURSW X8, [X12]
+    LDURSB X9, [X26]
+    MUL X23, X8, X9
 
-// x = 0
-MOV X22, XZR
-convolution_loop_x:
-// exit if x >= 3
+    // X = 1
+    LDURSW X8, [X12, #4]
+    LDURSB X9, [X26, #1]
+    MUL X8, X8, X9
+    ADD X23, X23, X8
 
-// stall 4 here
-CMP X22, #3
-// stall 5 here
-B.GE convolution_exit_loop_x
+    // X = 2
+    LDURSW X8, [X12, #8]
+    LDURSB X9, [X26, #2]
+    MUL X8, X8, X9
+    ADD X23, X23, X8
 
-// x8 = input[j + y][i + x] = *(input + ((j + y) * n + i + x) * 4)
-ADD X8, X19, X21
+    // Y = 1
+    ADD X14, X12, X7      
+    // X14 = input_element_base + n * 4
 
-// stall 1 here
-MUL X8, X8, X24
-ADD X8, X8, X20
-ADD X8, X8, X22
-MOV X9, #4
-// stall 1 here
-MUL X8, X8, X9
-ADD X8, X8, X25
-LDURSW X8, [X8]
-// x9 = weights[y][x] = *(weights + y * 3 + x)
-MOV X9, #3
-MUL X9, X21, X9
-ADD X9, X9, X22
-ADD X9, X26, X9
+    // X = 0
+    LDURSW X8, [X14]
+    LDURSB X9, [X26, #3]
+    MUL X8, X8, X9
+    ADD X23, X23, X8
 
-// stall 2 here
-LDURSB X9, [X9]
-// sum += input[j + y][i + x] * weights[y][x]
+    // X = 1
+    LDURSW X8, [X14, #4]
+    LDURSB X9, [X26, #4]
+    MUL X8, X8, X9
+    ADD X23, X23, X8
 
-// stall 1 here
-MUL X8, X8, X9
-ADD X23, X23, X8
-//  x++
-ADD X22, X22, #1
+    // X = 2
+    LDURSW X8, [X14, #8]
+    LDURSB X9, [X26, #5]
+    MUL X8, X8, X9
+    ADD X23, X23, X8
 
-// stall 5 here
-B convolution_loop_x
+    // Y = 2
+    ADD X15, X12, X16     
+    // X15 = input_element_base + 2 * n * 4
 
-convolution_exit_loop_x:
-// y++
-ADD X21, X21, #1
+    // X = 0
+    LDURSW X8, [X15]
+    LDURSB X9, [X26, #6]
+    MUL X8, X8, X9
+    ADD X23, X23, X8
 
-// stall 5 here
-B convolution_loop_y
+    // X = 1
+    LDURSW X8, [X15, #4]
+    LDURSB X9, [X26, #7]
+    MUL X8, X8, X9
+    ADD X23, X23, X8
 
-convolution_exit_loop_y:
-// sum += *bias
+    // X = 2
+    LDURSW X8, [X15, #8]
+    LDURSB X9, [X26, #8]
+    MUL X8, X8, X9
+    ADD X23, X23, X8
 
-// stall 2 here
-LDURSB X8, [X27]
-ADD X23, X23, X8
-// x0 = relu(sum)
-MOV X0, X23
-// stall 5 here
-BL relu
-// x8 = &output + (j * (n - 2) + i) * 4
-SUB X8, X24, #2
-// stall 1 here
-MUL X8, X8, X19
-ADD X8, X8, X20
-MOV X9, #4
-// stall 1 here
-MUL X8, X8, X9
-ADD X8, X28, X8
-// output[j][i] = sum
-STURW X0, [X8]
-// i++
-ADD X20, X20, #1
-// stall 5 here
-B convolution_loop_i
+    // Add bias and apply ReLU
+    ADD X23, X23, X27
+    ASR X9, X23, #63      
+    // Check if negative
+    EOR X9, X9, X23
+    AND X23, X9, X23      
+    // Apply ReLU
 
-convolution_exit_loop_i:
 
-// j++
-ADD X19, X19, #1
-// stall 5 here
-B convolution_loop_j
+    // Increment i
+    ADD X20, X20, #1
+
+    // Check if i < n - 2     
+    // X8 = n - 2
+    CMP X20, X0
+    // Store the result
+    STURW X23, [X13]
+    B.LT convolution_loop_i
+
+    // Increment j
+    ADD X19, X19, #1
+
+    // Check if j < n - 2 
+    // X8 = n - 2
+    CMP X19, X0
+    B.LT convolution_loop_j
 
 convolution_exit_loop_j:
-// Restore LR and saved registers
-LDUR X19, [SP, #0]
-LDUR X20, [SP, #8]
-LDUR X21, [SP, #16]
-LDUR X22, [SP, #24]
-LDUR X23, [SP, #32]
-LDUR X24, [SP, #40]
-LDUR X25, [SP, #48]
-LDUR X26, [SP, #56]
-LDUR X27, [SP, #64]
-LDUR X28, [SP, #72]
-LDUR LR, [SP, #80]
-ADD SP, SP, #96
-BR LR
+    // Restore LR and saved registers
+    LDUR X19, [SP, #0]
+    LDUR X20, [SP, #8]
+    LDUR X23, [SP, #16]
+    LDUR X24, [SP, #24]
+    LDUR X25, [SP, #32]
+    LDUR X26, [SP, #40]
+    LDUR X27, [SP, #48]
+    LDUR X28, [SP, #56]
+    LDUR LR, [SP, #64]
+    ADD SP, SP, #96
 
-// ---------- RELU Procedure ----------
-// Parameters:
-// x0 = x
-// Returns:
-// x0 = max(0, x)
-relu:
-// stall 4 here
-CMP X0, #0
-// stall 5 here
-B.GE relu_return
-MOV X0, XZR
-relu_return:
-// stall 5 here
-BR LR
+// Exit the program
+    MOV X8, #93
+    SVC 0
